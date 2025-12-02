@@ -1,9 +1,8 @@
 const UI = {
     el: (id) => document.getElementById(id),
-    
     wait: (ms) => new Promise(resolve => setTimeout(resolve, ms)),
-
-    scramble: (element, targetText) => {
+    
+    scramble: (element, targetText, speed = 30) => {
         const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&";
         return new Promise(resolve => {
             let iteration = 0;
@@ -21,180 +20,263 @@ const UI = {
                     resolve();
                 }
                 iteration += 1 / 3;
-            }, 30);
+            }, speed);
         });
     }
 };
 
-async function getWifiInfo() {
-    try {
-        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+const WifiCore = {
+    getHardwareSignature: () => {
         const nav = navigator;
+        const screen = window.screen;
+        const data = [
+            nav.hardwareConcurrency,
+            nav.deviceMemory,
+            nav.platform,
+            screen.width,
+            screen.height,
+            screen.colorDepth,
+            new Date().getTimezoneOffset()
+        ].join('');
         
-        let derivedSSID = "Network_Link";
-        if (connection) {
-             derivedSSID = `${connection.effectiveType.toUpperCase()}_${Math.floor(connection.downlink * 100)}`;
+        let hash = 0;
+        for (let i = 0; i < data.length; i++) {
+            const char = data.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
         }
+        return Math.abs(hash).toString(16).toUpperCase();
+    },
+
+    analyzeConnection: async () => {
+        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        const signature = WifiCore.getHardwareSignature();
         
-        const hw = nav.hardwareConcurrency || 4;
-        const mem = nav.deviceMemory || 8;
-        const seed = (hw * mem * 12345).toString(16).toUpperCase();
+        if (!conn) {
+            throw new Error("Network API unavailable");
+        }
+
+        const effectiveType = conn.effectiveType.toUpperCase();
+        const rtt = conn.rtt;
+        const downlink = conn.downlink;
         
+        let ssidPrefix = "System_Link";
+        if(effectiveType === '4G') ssidPrefix = "HighSpeed_5G";
+        else if(effectiveType === '3G') ssidPrefix = "Legacy_Net";
+        
+        const generatedSSID = `${ssidPrefix}_${signature.substring(0, 4)}`;
+        const generatedPass = `WPA3-${signature.substring(0, 4)}-${signature.substring(4, 8)}-${effectiveType}`;
+
         return {
-            ssid: `System_${derivedSSID}`,
-            password: `KEY-${seed.substring(0, 4)}-${seed.substring(4, 8)}`
-        };
-    } catch (error) {
-        return {
-            ssid: "Unknown_Network",
-            password: "ERROR-ACCESS-DENIED"
+            ssid: generatedSSID,
+            password: generatedPass,
+            type: effectiveType,
+            speed: downlink,
+            latency: rtt
         };
     }
+};
+
+async function initBackground() {
+    const canvas = UI.el('signal-canvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+    let particles = [];
+
+    const resize = () => {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+    };
+    
+    window.addEventListener('resize', resize);
+    resize();
+
+    class Particle {
+        constructor() {
+            this.x = Math.random() * width;
+            this.y = Math.random() * height;
+            this.vx = (Math.random() - 0.5) * 0.5;
+            this.vy = (Math.random() - 0.5) * 0.5;
+            this.size = Math.random() * 2;
+        }
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            if(this.x < 0) this.x = width;
+            if(this.x > width) this.x = 0;
+            if(this.y < 0) this.y = height;
+            if(this.y > height) this.y = 0;
+        }
+        draw() {
+            ctx.fillStyle = 'rgba(6, 182, 212, 0.5)';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    for(let i=0; i<100; i++) particles.push(new Particle());
+
+    function animate() {
+        ctx.clearRect(0, 0, width, height);
+        particles.forEach(p => {
+            p.update();
+            p.draw();
+        });
+        
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.1)';
+        ctx.lineWidth = 1;
+        for(let i=0; i<particles.length; i++) {
+            for(let j=i; j<particles.length; j++) {
+                const dx = particles[i].x - particles[j].x;
+                const dy = particles[i].y - particles[j].y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if(dist < 100) {
+                    ctx.beginPath();
+                    ctx.moveTo(particles[i].x, particles[i].y);
+                    ctx.lineTo(particles[j].x, particles[j].y);
+                    ctx.stroke();
+                }
+            }
+        }
+        requestAnimationFrame(animate);
+    }
+    animate();
 }
 
-async function checkPermission() {
+async function requestPermission() {
     const modal = UI.el('permission-modal');
     const card = UI.el('perm-card');
-    const allowBtn = UI.el('perm-allow');
-    const denyBtn = UI.el('perm-deny');
-
+    
     modal.style.opacity = '1';
     modal.style.pointerEvents = 'auto';
     card.style.transform = 'scale(1)';
-
+    
     return new Promise((resolve) => {
-        allowBtn.onclick = () => {
+        UI.el('perm-allow').onclick = () => {
             modal.style.opacity = '0';
             modal.style.pointerEvents = 'none';
-            card.style.transform = 'scale(0.95)';
+            card.style.transform = 'scale(0.9)';
             resolve(true);
         };
-        denyBtn.onclick = () => {
-            alert("Permission denied. Unable to scan.");
+        UI.el('perm-deny').onclick = () => {
             resolve(false);
         };
     });
 }
 
-async function runNotifications() {
-    const banner = UI.el('notify-banner');
+async function runNotificationSequence() {
     const card = UI.el('notify-card');
-    const dot = UI.el('notify-dot');
     const msg = UI.el('notify-msg');
-
-    banner.style.transform = 'translateY(0)';
+    const dot = UI.el('notify-dot');
+    const ping = UI.el('notify-ping');
     
-    card.className = "mt-6 px-8 py-3 rounded-full backdrop-blur-md border border-red-500/30 bg-red-900/20 flex items-center gap-3 shadow-lg transition-all duration-500";
-    dot.className = "w-2 h-2 rounded-full bg-red-500 animate-pulse";
+    card.style.transform = 'translateY(0)';
+    
+    dot.className = "relative w-3 h-3 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]";
+    ping.className = "absolute inset-0 rounded-full animate-ping bg-red-500 opacity-75";
     msg.innerText = "checking for connection..";
-    msg.className = "text-red-300 text-sm font-bold tracking-wide uppercase";
-    
-    await UI.wait(2500);
-
-    msg.innerText = "connecting to internet..";
-    card.className = "mt-6 px-8 py-3 rounded-full backdrop-blur-md border border-yellow-500/30 bg-yellow-900/20 flex items-center gap-3 shadow-lg transition-all duration-500";
-    dot.className = "w-2 h-2 rounded-full bg-yellow-500 animate-pulse";
-    msg.className = "text-yellow-300 text-sm font-bold tracking-wide uppercase";
+    msg.className = "text-red-400 text-xs font-bold tracking-widest uppercase";
+    card.className = "bg-slate-900/90 backdrop-blur-xl border border-red-500/30 px-8 py-4 rounded-2xl flex items-center gap-4 shadow-[0_0_30px_rgba(239,68,68,0.2)] transform transition-all duration-500";
 
     await UI.wait(2000);
+    
+    dot.className = "relative w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_10px_#eab308]";
+    ping.className = "absolute inset-0 rounded-full animate-ping bg-yellow-500 opacity-75";
+    msg.innerText = "connecting to internet..";
+    msg.className = "text-yellow-400 text-xs font-bold tracking-widest uppercase";
+    card.style.borderColor = "rgba(234,179,8,0.3)";
 
+    await UI.wait(1500);
+
+    dot.className = "relative w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]";
+    ping.className = "absolute inset-0 rounded-full animate-ping bg-green-500 opacity-75";
     msg.innerText = "connected press the connect button!";
-    card.className = "mt-6 px-8 py-3 rounded-full backdrop-blur-md border border-green-500/30 bg-green-900/20 flex items-center gap-3 shadow-lg transition-all duration-500";
-    dot.className = "w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]";
-    msg.className = "text-green-300 text-sm font-bold tracking-wide uppercase";
+    msg.className = "text-green-400 text-xs font-bold tracking-widest uppercase";
+    card.style.borderColor = "rgba(34,197,94,0.3)";
+    card.style.boxShadow = "0 0 30px rgba(34,197,94,0.2)";
 
     await UI.wait(3000);
-    banner.style.transform = 'translateY(-150%)';
+    card.style.transform = 'translateY(-200%)';
 }
 
 async function startSystem() {
+    initBackground();
+    
     const decryptEl = UI.el('decrypt-text');
-    const layer = UI.el('startup-layer');
     const bars = document.querySelectorAll('.wifi-bar');
     
-    let cycle = setInterval(() => {
+    let interval = setInterval(() => {
+        const chars = "XYZ0123456789";
         let str = "";
-        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&";
-        for(let i=0; i<12; i++) str += chars[Math.floor(Math.random() * chars.length)];
+        for(let i=0; i<8; i++) str += chars[Math.floor(Math.random() * chars.length)];
         decryptEl.innerText = str;
     }, 50);
 
-    await UI.wait(2000);
-    clearInterval(cycle);
+    await UI.wait(2500);
+    clearInterval(interval);
+    
     document.querySelector('.relative').classList.add('scramble-mode');
-    bars.forEach(b => {
-        b.style.top = '50%';
-        b.style.width = '100px';
-    });
     
-    await UI.wait(600);
-    await UI.scramble(decryptEl, "CONNECTED");
     await UI.wait(800);
+    await UI.scramble(decryptEl, "SYSTEM READY");
+    await UI.wait(1000);
     
-    layer.classList.add('fade-out');
+    UI.el('startup-layer').classList.add('fade-out');
     UI.el('main-ui').style.opacity = '1';
     
-    runNotifications();
+    runNotificationSequence();
 }
 
-async function executeScan() {
+async function handleScan() {
     const btn = UI.el('connect-btn');
     const ring = UI.el('anim-ring');
     const label = UI.el('status-label');
-    const stage = UI.el('action-stage');
-    const dash = UI.el('dashboard');
-
-    const granted = await checkPermission();
-    if(!granted) return;
+    
+    const allowed = await requestPermission();
+    if(!allowed) return;
 
     btn.style.pointerEvents = 'none';
     
     (async () => {
         try {
-            if (navigator.connection || navigator.mozConnection || navigator.webkitConnection) {
-                const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-                const effectiveType = connection.effectiveType;
-                const downlink = connection.downlink;
-                const rtt = connection.rtt;
-                
-                UI.el('net-type').innerText = effectiveType.toUpperCase();
-                UI.el('net-speed').innerText = downlink + " Mbps";
-                UI.el('net-rtt').innerText = rtt + " ms";
-
-                const wifiInfo = await getWifiInfo();
-                
-                ring.style.strokeDasharray = "754 754"; 
-    
-                await UI.scramble(label, "Checking if your connected to your wifi..");
-                await UI.wait(1500);
-                
-                if (wifiInfo) {
-                    await UI.scramble(label, `Checking ${wifiInfo.ssid} right now..`);
-                    await UI.wait(1500);
-                    
-                    await UI.scramble(label, `Successfully found the wifi password to ${wifiInfo.ssid}.`);
-                    await UI.wait(1000);
-
-                    stage.style.opacity = '0';
-                    stage.style.transform = 'scale(0.9)';
-                    
-                    await UI.wait(800);
-                    
-                    stage.style.display = 'none';
-                    dash.classList.remove('hidden');
-                    dash.classList.add('fade-in-up', 'grid');
-                    
-                    UI.el('wifi-name-display').innerText = wifiInfo.ssid;
-                    await UI.scramble(UI.el('wifi-pass-display'), wifiInfo.password);
-                }
-            } else {
-                alert('Network Information API is not supported in this browser.');
-            }
-        } catch (error) {
-            console.error(error);
+            const data = await WifiCore.analyzeConnection();
+            
+            ring.style.opacity = '1';
+            ring.style.strokeDasharray = "848 848";
+            
+            await UI.scramble(label, "Checking if your connected to your wifi..");
+            await UI.wait(1500);
+            
+            await UI.scramble(label, `Checking ${data.ssid} right now..`);
+            await UI.wait(1800);
+            
+            await UI.scramble(label, `Successfully found the wifi password to ${data.ssid}.`);
+            await UI.wait(1000);
+            
+            const stage = UI.el('action-stage');
+            stage.style.opacity = '0';
+            stage.style.transform = 'scale(0.95)';
+            
+            await UI.wait(1000);
+            stage.style.display = 'none';
+            
+            const dash = UI.el('dashboard');
+            dash.classList.remove('hidden');
+            dash.classList.add('fade-in-up', 'grid');
+            
+            await UI.scramble(UI.el('wifi-name-display'), data.ssid);
+            await UI.scramble(UI.el('wifi-pass-display'), data.password);
+            
+            UI.el('net-type').innerText = data.type;
+            UI.el('net-speed').innerText = data.speed + " Mbps";
+            UI.el('net-rtt').innerText = data.latency + " ms";
+            
+        } catch (e) {
+            console.error(e);
         }
     })();
 }
 
-window.addEventListener('load', startSystem);
-UI.el('connect-btn').addEventListener('click', executeScan);
+window.onload = startSystem;
+UI.el('connect-btn').addEventListener('click', handleScan);
