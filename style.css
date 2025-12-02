@@ -1,27 +1,36 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;500;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@200;400;700;800&display=swap');
 
 :root {
-    --bg-dark: #020024;
+    --bg-deep: #020024;
     --accent-cyan: #06b6d4;
-    --accent-purple: #7c3aed;
+    --accent-glow: rgba(6, 182, 212, 0.6);
 }
 
 body {
     font-family: 'JetBrains Mono', monospace;
+    background: radial-gradient(circle at center, #0f172a 0%, #020024 100%);
 }
 
 .bg-midnight {
-    background: linear-gradient(145deg, #020024 0%, #0f0c29 40%, #1a0b2e 100%);
+    background: radial-gradient(circle at 50% 50%, #0f172a 0%, #020024 100%);
+}
+
+.glow-text {
+    text-shadow: 0 0 10px var(--accent-glow), 0 0 20px var(--accent-glow);
+}
+
+.text-shadow-glow {
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
 }
 
 .custom-scroll::-webkit-scrollbar {
     width: 4px;
 }
 .custom-scroll::-webkit-scrollbar-track {
-    background: rgba(255,255,255,0.05);
+    background: rgba(255,255,255,0.02);
 }
 .custom-scroll::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.2);
+    background: linear-gradient(to bottom, #06b6d4, #3b82f6);
     border-radius: 4px;
 }
 
@@ -30,27 +39,38 @@ body {
     border: 8px solid transparent;
     border-top-color: var(--accent-cyan);
     border-radius: 50%;
-    animation: pulseWifi 2s infinite ease-in-out;
+    box-shadow: 0 -4px 20px var(--accent-glow);
+    animation: pulseWifi 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1);
 }
 
-.bar-1 { width: 100px; height: 100px; top: 20px; animation-delay: 0s; }
-.bar-2 { width: 60px; height: 60px; top: 40px; animation-delay: 0.2s; }
-.bar-3 { width: 20px; height: 20px; top: 60px; background: var(--accent-cyan); border: none; animation-delay: 0.4s; }
+.bar-1 { width: 140px; height: 140px; top: 20px; animation-delay: 0s; opacity: 0.2; }
+.bar-2 { width: 100px; height: 100px; top: 40px; animation-delay: 0.15s; opacity: 0.4; }
+.bar-3 { width: 60px; height: 60px; top: 60px; animation-delay: 0.3s; opacity: 0.6; }
+.bar-4 { width: 20px; height: 20px; top: 80px; background: var(--accent-cyan); border: none; animation-delay: 0.45s; opacity: 1; box-shadow: 0 0 20px var(--accent-cyan); }
 
 @keyframes pulseWifi {
-    0% { opacity: 0.1; transform: scale(0.95); }
-    50% { opacity: 1; transform: scale(1.05); }
-    100% { opacity: 0.1; transform: scale(0.95); }
+    0% { transform: scale(0.95); opacity: 0.1; filter: brightness(1); }
+    50% { transform: scale(1.05); opacity: 1; filter: brightness(1.5); }
+    100% { transform: scale(0.95); opacity: 0.1; filter: brightness(1); }
 }
 
 .scramble-mode .wifi-bar {
-    animation: none;
-    border-top: 4px solid var(--accent-cyan);
-    border-radius: 0;
-    width: 80px;
+    animation: collapseBars 0.8s forwards cubic-bezier(0.2, 0.8, 0.2, 1);
+    border: none;
+    background: var(--accent-cyan);
     height: 2px;
-    background: none;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 15px var(--accent-cyan);
+}
+
+@keyframes collapseBars {
+    0% { border: 8px solid transparent; border-top-color: var(--accent-cyan); border-radius: 50%; background: transparent; }
+    50% { width: 20px; border-radius: 2px; }
+    100% { width: 100px; height: 2px; top: 50%; border-radius: 0; background: var(--accent-cyan); border: none; transform: scale(1); opacity: 1; }
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
 }
 
 .fade-out {
@@ -60,15 +80,15 @@ body {
 }
 
 .fade-in-up {
-    animation: fadeInUp 0.8s forwards;
+    animation: fadeInUp 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
+    from { opacity: 0; transform: translateY(40px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
 #anim-ring {
-    transition: stroke-dasharray 3.5s cubic-bezier(0.45, 0, 0.55, 1);
-    filter: drop-shadow(0 0 8px var(--accent-cyan));
+    transition: stroke-dasharray 4s cubic-bezier(0.25, 1, 0.5, 1);
+    filter: drop-shadow(0 0 10px #06b6d4);
 }
