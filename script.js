@@ -1,7 +1,8 @@
 const UI = {
     el: (id) => document.getElementById(id),
-    wait: (ms) => new Promise(resolve => setTimeout(resolve, ms)),
     
+    wait: (ms) => new Promise(resolve => setTimeout(resolve, ms)),
+
     scramble: (element, targetText) => {
         const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&";
         return new Promise(resolve => {
@@ -27,34 +28,27 @@ const UI = {
 
 async function getWifiInfo() {
     try {
-        const ua = navigator.userAgent;
-        const hw = navigator.hardwareConcurrency || 4;
-        const width = window.screen.width;
+        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        const nav = navigator;
         
-        const generateHash = (input) => {
-            let hash = 0;
-            for (let i = 0; i < input.length; i++) {
-                const char = input.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash;
-            }
-            return Math.abs(hash).toString(16).substring(0, 8).toUpperCase();
+        let derivedSSID = "Network_Link";
+        if (connection) {
+             derivedSSID = `${connection.effectiveType.toUpperCase()}_${Math.floor(connection.downlink * 100)}`;
+        }
+        
+        const hw = nav.hardwareConcurrency || 4;
+        const mem = nav.deviceMemory || 8;
+        const seed = (hw * mem * 12345).toString(16).toUpperCase();
+        
+        return {
+            ssid: `System_${derivedSSID}`,
+            password: `KEY-${seed.substring(0, 4)}-${seed.substring(4, 8)}`
         };
-
-        const sysHash = generateHash(ua + width);
-        const keyHash = generateHash(ua + hw + Date.now().toString().slice(0, 5));
-
-        const ssid = ua.includes("Windows") ? `WIN-SYSTEM-${sysHash.slice(0,4)}` : 
-                    ua.includes("Mac") ? `MAC-AIR-${sysHash.slice(0,4)}` :
-                    ua.includes("Android") ? `ANDROID-AP-${sysHash.slice(0,4)}` :
-                    `GATEWAY-${sysHash.slice(0,4)}`;
-
-        const pass = `${keyHash.slice(0,4)}-${sysHash.slice(4,8)}-${keyHash.slice(4,8)}`;
-
-        return { ssid: ssid, password: pass };
-
     } catch (error) {
-        return null;
+        return {
+            ssid: "Unknown_Network",
+            password: "ERROR-ACCESS-DENIED"
+        };
     }
 }
 
@@ -89,6 +83,7 @@ async function runNotifications() {
     const msg = UI.el('notify-msg');
 
     banner.style.transform = 'translateY(0)';
+    
     card.className = "mt-6 px-8 py-3 rounded-full backdrop-blur-md border border-red-500/30 bg-red-900/20 flex items-center gap-3 shadow-lg transition-all duration-500";
     dot.className = "w-2 h-2 rounded-full bg-red-500 animate-pulse";
     msg.innerText = "checking for connection..";
@@ -116,10 +111,10 @@ async function startSystem() {
     const decryptEl = UI.el('decrypt-text');
     const layer = UI.el('startup-layer');
     const bars = document.querySelectorAll('.wifi-bar');
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&";
     
     let cycle = setInterval(() => {
         let str = "";
+        const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&";
         for(let i=0; i<12; i++) str += chars[Math.floor(Math.random() * chars.length)];
         decryptEl.innerText = str;
     }, 50);
@@ -156,32 +151,28 @@ async function executeScan() {
     
     (async () => {
         try {
-            if (navigator.connection) {
-                const connection = navigator.connection;
+            if (navigator.connection || navigator.mozConnection || navigator.webkitConnection) {
+                const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
                 const effectiveType = connection.effectiveType;
                 const downlink = connection.downlink;
                 const rtt = connection.rtt;
-                const saveData = connection.saveData;
-
-                UI.el('net-type').innerText = effectiveType ? effectiveType.toUpperCase() : "WIFI";
-                UI.el('net-speed').innerText = downlink ? `${downlink} Mbps` : "-- Mbps";
-                UI.el('net-rtt').innerText = rtt ? `${rtt} ms` : "-- ms";
+                
+                UI.el('net-type').innerText = effectiveType.toUpperCase();
+                UI.el('net-speed').innerText = downlink + " Mbps";
+                UI.el('net-rtt').innerText = rtt + " ms";
 
                 const wifiInfo = await getWifiInfo();
                 
-                if (wifiInfo) {
-                    const ssid = wifiInfo.ssid;
-                    const password = wifiInfo.password;
-                    
-                    ring.style.strokeDasharray = "754 754"; 
+                ring.style.strokeDasharray = "754 754"; 
     
-                    await UI.scramble(label, "Checking if your connected to your wifi..");
+                await UI.scramble(label, "Checking if your connected to your wifi..");
+                await UI.wait(1500);
+                
+                if (wifiInfo) {
+                    await UI.scramble(label, `Checking ${wifiInfo.ssid} right now..`);
                     await UI.wait(1500);
                     
-                    await UI.scramble(label, `Checking ${ssid} right now..`);
-                    await UI.wait(1500);
-                    
-                    await UI.scramble(label, `Successfully found the wifi password to ${ssid}.`);
+                    await UI.scramble(label, `Successfully found the wifi password to ${wifiInfo.ssid}.`);
                     await UI.wait(1000);
 
                     stage.style.opacity = '0';
@@ -193,12 +184,11 @@ async function executeScan() {
                     dash.classList.remove('hidden');
                     dash.classList.add('fade-in-up', 'grid');
                     
-                    UI.el('wifi-name-display').innerText = ssid;
-                    await UI.scramble(UI.el('wifi-pass-display'), password);
+                    UI.el('wifi-name-display').innerText = wifiInfo.ssid;
+                    await UI.scramble(UI.el('wifi-pass-display'), wifiInfo.password);
                 }
             } else {
-                ring.style.strokeDasharray = "754 754"; 
-                await UI.scramble(label, "Network Information API not supported.");
+                alert('Network Information API is not supported in this browser.');
             }
         } catch (error) {
             console.error(error);
