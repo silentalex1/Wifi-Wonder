@@ -29,13 +29,24 @@ const WifiCore = {
     getHardwareSignature: () => {
         const nav = navigator;
         const screen = window.screen;
+        
+        let glRenderer = "UNKNOWN_GPU";
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl');
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            glRenderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        } catch(e) {}
+
         const data = [
             nav.hardwareConcurrency,
-            nav.deviceMemory,
+            nav.deviceMemory || 4,
             nav.platform,
+            nav.userAgent,
             screen.width,
             screen.height,
             screen.colorDepth,
+            glRenderer,
             new Date().getTimezoneOffset()
         ].join('');
         
@@ -53,16 +64,23 @@ const WifiCore = {
         const signature = WifiCore.getHardwareSignature();
         
         if (!conn) {
-            throw new Error("Network API unavailable");
+            return {
+                ssid: `Link_${signature.substring(0,6)}`,
+                password: `KEY-${signature}-X`,
+                type: 'WIFI',
+                speed: 100,
+                latency: 20
+            };
         }
 
-        const effectiveType = conn.effectiveType.toUpperCase();
-        const rtt = conn.rtt;
-        const downlink = conn.downlink;
+        const effectiveType = (conn.effectiveType || 'wifi').toUpperCase();
+        const rtt = conn.rtt || 25;
+        const downlink = conn.downlink || 50;
         
         let ssidPrefix = "System_Link";
-        if(effectiveType === '4G') ssidPrefix = "HighSpeed_5G";
-        else if(effectiveType === '3G') ssidPrefix = "Legacy_Net";
+        if(effectiveType.includes('4G')) ssidPrefix = "LTE_Net";
+        if(effectiveType.includes('5G')) ssidPrefix = "5G_Core";
+        if(effectiveType === 'WIFI') ssidPrefix = "Home_Mesh";
         
         const generatedSSID = `${ssidPrefix}_${signature.substring(0, 4)}`;
         const generatedPass = `WPA3-${signature.substring(0, 4)}-${signature.substring(4, 8)}-${effectiveType}`;
@@ -115,7 +133,7 @@ async function initBackground() {
         }
     }
 
-    for(let i=0; i<100; i++) particles.push(new Particle());
+    for(let i=0; i<60; i++) particles.push(new Particle());
 
     function animate() {
         ctx.clearRect(0, 0, width, height);
@@ -131,7 +149,7 @@ async function initBackground() {
                 const dx = particles[i].x - particles[j].x;
                 const dy = particles[i].y - particles[j].y;
                 const dist = Math.sqrt(dx*dx + dy*dy);
-                if(dist < 100) {
+                if(dist < 80) {
                     ctx.beginPath();
                     ctx.moveTo(particles[i].x, particles[i].y);
                     ctx.lineTo(particles[j].x, particles[j].y);
@@ -176,15 +194,15 @@ async function runNotificationSequence() {
     dot.className = "relative w-3 h-3 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]";
     ping.className = "absolute inset-0 rounded-full animate-ping bg-red-500 opacity-75";
     msg.innerText = "checking for connection..";
-    msg.className = "text-red-400 text-xs font-bold tracking-widest uppercase";
-    card.className = "bg-slate-900/90 backdrop-blur-xl border border-red-500/30 px-8 py-4 rounded-2xl flex items-center gap-4 shadow-[0_0_30px_rgba(239,68,68,0.2)] transform transition-all duration-500";
+    msg.className = "text-red-400 text-[10px] md:text-xs font-bold tracking-widest uppercase";
+    card.className = "bg-slate-900/90 backdrop-blur-xl border border-red-500/30 px-6 py-3 rounded-full flex items-center gap-4 shadow-[0_0_30px_rgba(239,68,68,0.2)] transform transition-all duration-500";
 
     await UI.wait(2000);
     
     dot.className = "relative w-3 h-3 rounded-full bg-yellow-500 shadow-[0_0_10px_#eab308]";
     ping.className = "absolute inset-0 rounded-full animate-ping bg-yellow-500 opacity-75";
     msg.innerText = "connecting to internet..";
-    msg.className = "text-yellow-400 text-xs font-bold tracking-widest uppercase";
+    msg.className = "text-yellow-400 text-[10px] md:text-xs font-bold tracking-widest uppercase";
     card.style.borderColor = "rgba(234,179,8,0.3)";
 
     await UI.wait(1500);
@@ -192,12 +210,12 @@ async function runNotificationSequence() {
     dot.className = "relative w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_#22c55e]";
     ping.className = "absolute inset-0 rounded-full animate-ping bg-green-500 opacity-75";
     msg.innerText = "connected press the connect button!";
-    msg.className = "text-green-400 text-xs font-bold tracking-widest uppercase";
+    msg.className = "text-green-400 text-[10px] md:text-xs font-bold tracking-widest uppercase";
     card.style.borderColor = "rgba(34,197,94,0.3)";
     card.style.boxShadow = "0 0 30px rgba(34,197,94,0.2)";
 
     await UI.wait(3000);
-    card.style.transform = 'translateY(-200%)';
+    card.style.transform = 'translateY(-250%)';
 }
 
 async function startSystem() {
@@ -232,6 +250,7 @@ async function handleScan() {
     const btn = UI.el('connect-btn');
     const ring = UI.el('anim-ring');
     const label = UI.el('status-label');
+    const svgCircle = ring.parentElement.querySelector('circle:first-child');
     
     const allowed = await requestPermission();
     if(!allowed) return;
@@ -243,7 +262,8 @@ async function handleScan() {
             const data = await WifiCore.analyzeConnection();
             
             ring.style.opacity = '1';
-            ring.style.strokeDasharray = "848 848";
+            const circumference = 2 * Math.PI * (svgCircle.r.baseVal.value);
+            ring.style.strokeDasharray = `${circumference} ${circumference}`;
             
             await UI.scramble(label, "Checking if your connected to your wifi..");
             await UI.wait(1500);
@@ -270,7 +290,6 @@ async function handleScan() {
             
             UI.el('net-type').innerText = data.type;
             UI.el('net-speed').innerText = data.speed + " Mbps";
-            UI.el('net-rtt').innerText = data.latency + " ms";
             
         } catch (e) {
             console.error(e);
