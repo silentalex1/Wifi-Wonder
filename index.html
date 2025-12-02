@@ -7,150 +7,221 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-midnight overflow-hidden h-screen w-screen relative select-none text-white">
+<body class="bg-midnight overflow-hidden h-screen w-screen relative select-none text-white font-mono">
 
     <div id="startup-layer" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-midnight transition-opacity duration-1000">
-        <div class="relative w-40 h-40 flex items-center justify-center">
+        <canvas id="signal-canvas" class="absolute inset-0 z-0 opacity-30"></canvas>
+        <div class="relative w-48 h-48 flex items-center justify-center z-10">
             <div class="wifi-bar bar-1"></div>
             <div class="wifi-bar bar-2"></div>
             <div class="wifi-bar bar-3"></div>
+            <div class="wifi-bar bar-4"></div>
         </div>
-        <div id="decrypt-text" class="mt-8 text-cyan-400 font-mono text-xl tracking-widest h-8"></div>
+        <div id="decrypt-text" class="mt-8 text-cyan-400 text-2xl tracking-[0.3em] font-bold h-10 glow-text z-10"></div>
     </div>
 
-    <div id="permission-modal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
-        <div class="bg-slate-900/90 border border-white/10 p-6 rounded-2xl max-w-sm w-full shadow-2xl transform scale-95 transition-transform duration-300" id="perm-card">
-            <div class="flex items-center gap-4 mb-4">
-                <div class="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400">
+    <div id="permission-modal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-500">
+        <div class="bg-gradient-to-b from-slate-800 to-slate-900 border border-cyan-500/30 p-8 rounded-3xl max-w-md w-full shadow-[0_0_50px_rgba(6,182,212,0.15)] transform scale-90 transition-transform duration-500" id="perm-card">
+            <div class="flex items-center gap-5 mb-6">
+                <div class="w-12 h-12 rounded-full bg-cyan-900/50 border border-cyan-500/50 flex items-center justify-center text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 </div>
                 <div>
-                    <h3 class="font-bold text-white">System Permission</h3>
-                    <p class="text-xs text-gray-400">Network Credential Access</p>
+                    <h3 class="text-xl font-bold text-white tracking-wide">System Request</h3>
+                    <p class="text-xs text-cyan-300 uppercase tracking-wider mt-1">Root Access Protocol</p>
                 </div>
             </div>
-            <p class="text-sm text-gray-300 mb-6 leading-relaxed">
-                Wifi password finder requests access to navigator.connection to retrieve local SSID and Security Keys via custom method protocols.
+            <p class="text-sm text-slate-300 mb-8 leading-relaxed border-l-2 border-cyan-500/30 pl-4">
+                The application requires direct access to <span class="text-cyan-400 font-mono">navigator.connection</span> and local hardware interfaces to derive the active SSID credentials.
             </p>
-            <div class="grid grid-cols-2 gap-3">
-                <button id="perm-deny" class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-medium transition-colors">Block</button>
-                <button id="perm-allow" class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold shadow-lg shadow-cyan-500/20 transition-all">Allow Access</button>
+            <div class="grid grid-cols-2 gap-4">
+                <button id="perm-deny" class="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-sm font-bold tracking-wide transition-all border border-slate-700">DENY</button>
+                <button id="perm-allow" class="px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-sm font-bold tracking-wide shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all hover:scale-[1.02] border border-cyan-400/20">AUTHORIZE</button>
             </div>
         </div>
     </div>
 
-    <div id="notify-banner" class="fixed top-0 left-0 w-full flex justify-center z-40 -translate-y-full transition-transform duration-700 ease-out">
-        <div id="notify-card" class="mt-6 px-8 py-3 rounded-full backdrop-blur-md border flex items-center gap-3 shadow-lg transition-colors duration-500">
-            <div id="notify-dot" class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-            <span id="notify-msg" class="text-sm font-bold tracking-wide uppercase">Checking...</span>
+    <div id="notify-container" class="fixed top-8 left-0 w-full flex justify-center z-40 pointer-events-none">
+        <div id="notify-card" class="bg-slate-900/90 backdrop-blur-xl border border-white/10 px-8 py-4 rounded-2xl flex items-center gap-4 shadow-2xl transform -translate-y-[200%] transition-all duration-700 cubic-bezier(0.34, 1.56, 0.64, 1)">
+            <div class="relative">
+                <div id="notify-ping" class="absolute inset-0 rounded-full animate-ping opacity-75"></div>
+                <div id="notify-dot" class="relative w-3 h-3 rounded-full"></div>
+            </div>
+            <span id="notify-msg" class="text-sm font-bold tracking-wider uppercase font-mono">Initializing...</span>
         </div>
     </div>
 
     <div id="main-ui" class="opacity-0 w-full h-full flex flex-col items-center justify-center relative z-10 transition-opacity duration-1000">
         
-        <div id="action-stage" class="absolute inset-0 flex flex-col items-center justify-center transition-all duration-800">
-            <div id="status-label" class="mb-12 text-center h-8 text-cyan-100 font-mono text-lg tracking-wider"></div>
+        <div id="action-stage" class="absolute inset-0 flex flex-col items-center justify-center transition-all duration-1000">
+            <div class="h-12 mb-10 overflow-hidden relative w-full flex justify-center">
+                <div id="status-label" class="text-cyan-200 font-mono text-lg tracking-widest uppercase glow-text transition-all duration-300"></div>
+            </div>
             
-            <div class="relative w-64 h-64 flex items-center justify-center">
+            <div class="relative w-72 h-72 flex items-center justify-center group">
+                <div class="absolute inset-0 rounded-full border border-white/5"></div>
                 <svg class="absolute inset-0 w-full h-full rotate-[-90deg]">
-                    <circle cx="128" cy="128" r="120" class="stroke-white/5 fill-none stroke-[2]"></circle>
-                    <circle id="anim-ring" cx="128" cy="128" r="120" class="stroke-cyan-400 fill-none stroke-[4]" stroke-dasharray="0 754"></circle>
+                    <defs>
+                        <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="#22d3ee" />
+                            <stop offset="100%" stop-color="#3b82f6" />
+                        </linearGradient>
+                    </defs>
+                    <circle cx="144" cy="144" r="135" class="stroke-white/5 fill-none stroke-[2]"></circle>
+                    <circle id="anim-ring" cx="144" cy="144" r="135" class="stroke-[url(#ring-grad)] fill-none stroke-[6] opacity-0" stroke-dasharray="0 848" stroke-linecap="round"></circle>
                 </svg>
                 
-                <button id="connect-btn" class="w-40 h-40 rounded-full bg-white/5 backdrop-blur-xl border border-white/10 shadow-[0_0_40px_rgba(6,182,212,0.2)] hover:shadow-[0_0_60px_rgba(6,182,212,0.5)] hover:scale-105 active:scale-95 transition-all duration-300 group">
-                    <div class="w-full h-full rounded-full flex items-center justify-center relative overflow-hidden">
-                        <div class="absolute inset-0 bg-gradient-to-tr from-cyan-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <button id="connect-btn" class="w-48 h-48 rounded-full bg-slate-900/50 backdrop-blur-2xl border border-cyan-500/20 shadow-[0_0_60px_rgba(6,182,212,0.1)] hover:shadow-[0_0_100px_rgba(6,182,212,0.4)] hover:scale-105 active:scale-95 transition-all duration-500 z-20 overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-tr from-cyan-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div class="w-full h-full flex items-center justify-center relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.5)] transition-transform duration-500 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
                     </div>
                 </button>
+
+                <div class="absolute inset-0 rounded-full border border-cyan-500/30 scale-110 opacity-0 group-hover:opacity-100 group-hover:scale-125 transition-all duration-700 pointer-events-none"></div>
             </div>
         </div>
 
-        <div id="dashboard" class="hidden w-full max-w-6xl p-8 grid-cols-1 lg:grid-cols-12 gap-6 h-[80vh]">
+        <div id="dashboard" class="hidden w-full max-w-7xl p-6 lg:p-10 grid-cols-1 lg:grid-cols-12 gap-8 h-[85vh] opacity-0 transform translate-y-10 transition-all duration-1000">
             
-            <div class="lg:col-span-4 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 flex flex-col justify-between relative overflow-hidden group">
-                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400 to-blue-600"></div>
+            <div class="lg:col-span-5 bg-slate-900/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-10 flex flex-col justify-between relative overflow-hidden shadow-2xl">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600"></div>
+                <div class="absolute -right-20 -top-20 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
                 
                 <div>
-                    <div class="flex items-center gap-3 mb-6">
-                        <div class="w-3 h-3 bg-green-400 rounded-full shadow-[0_0_10px_#4ade80]"></div>
-                        <span class="text-xs text-green-400 font-bold tracking-[0.2em]">LIVE CONNECTION</span>
+                    <div class="flex items-center gap-4 mb-8">
+                        <div class="relative">
+                            <div class="w-4 h-4 bg-green-500 rounded-full shadow-[0_0_15px_#22c55e] z-10 relative"></div>
+                            <div class="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-50"></div>
+                        </div>
+                        <span class="text-xs text-green-400 font-bold tracking-[0.3em] uppercase">Secure Connection</span>
                     </div>
-                    <h2 class="text-gray-400 text-sm uppercase tracking-widest mb-1">Network SSID</h2>
-                    <h1 id="wifi-name-display" class="text-2xl font-bold text-white mb-8 truncate">...</h1>
                     
-                    <div class="space-y-4">
-                        <div class="flex justify-between p-3 bg-black/20 rounded-lg border border-white/5">
-                            <span class="text-gray-400 text-sm">Connection Type</span>
-                            <span id="net-type" class="text-cyan-300 font-mono text-sm uppercase">WIFI</span>
+                    <h2 class="text-slate-400 text-xs uppercase tracking-[0.2em] mb-2 font-bold">Detected SSID</h2>
+                    <h1 id="wifi-name-display" class="text-4xl lg:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-10 truncate tracking-tight"></h1>
+                    
+                    <div class="space-y-5">
+                        <div class="flex items-center justify-between p-4 bg-black/40 rounded-xl border border-white/5 hover:border-cyan-500/30 transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <div class="p-2 rounded-lg bg-cyan-900/30 text-cyan-400 group-hover:text-white transition-colors">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                                </div>
+                                <span class="text-slate-400 text-sm font-medium">Protocol</span>
+                            </div>
+                            <span id="net-type" class="text-cyan-300 font-mono text-sm font-bold tracking-wider"></span>
                         </div>
-                        <div class="flex justify-between p-3 bg-black/20 rounded-lg border border-white/5">
-                            <span class="text-gray-400 text-sm">Downlink</span>
-                            <span id="net-speed" class="text-purple-300 font-mono text-sm">-- Mbps</span>
+                        
+                        <div class="flex items-center justify-between p-4 bg-black/40 rounded-xl border border-white/5 hover:border-purple-500/30 transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <div class="p-2 rounded-lg bg-purple-900/30 text-purple-400 group-hover:text-white transition-colors">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                </div>
+                                <span class="text-slate-400 text-sm font-medium">Downlink</span>
+                            </div>
+                            <span id="net-speed" class="text-purple-300 font-mono text-sm font-bold tracking-wider"></span>
                         </div>
-                        <div class="flex justify-between p-3 bg-black/20 rounded-lg border border-white/5">
-                            <span class="text-gray-400 text-sm">Latency (RTT)</span>
-                            <span id="net-rtt" class="text-white font-mono text-sm">-- ms</span>
+                        
+                        <div class="flex items-center justify-between p-4 bg-black/40 rounded-xl border border-white/5 hover:border-green-500/30 transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <div class="p-2 rounded-lg bg-green-900/30 text-green-400 group-hover:text-white transition-colors">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                </div>
+                                <span class="text-slate-400 text-sm font-medium">Latency</span>
+                            </div>
+                            <span id="net-rtt" class="text-white font-mono text-sm font-bold tracking-wider"></span>
                         </div>
                     </div>
                 </div>
 
-                <div class="mt-8">
-                    <div class="text-gray-500 text-xs uppercase tracking-wider mb-2">Signal Integrity</div>
-                    <div class="w-full bg-white/10 h-1 rounded-full overflow-hidden">
-                        <div class="bg-cyan-400 h-full w-[94%] shadow-[0_0_10px_#22d3ee]"></div>
+                <div class="mt-10">
+                    <div class="flex justify-between items-end mb-3">
+                        <div class="text-slate-500 text-xs uppercase tracking-widest font-bold">Signal Strength</div>
+                        <div class="text-cyan-400 text-xs font-mono font-bold">EXCELLENT</div>
+                    </div>
+                    <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div class="bg-gradient-to-r from-cyan-500 to-blue-500 h-full w-[94%] shadow-[0_0_20px_#22d3ee] relative">
+                            <div class="absolute inset-0 bg-white/30 w-full animate-[shimmer_2s_infinite]"></div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="lg:col-span-8 grid grid-rows-2 gap-6">
-                <div class="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 flex items-center justify-between relative overflow-hidden">
-                    <div class="absolute right-0 top-0 h-full w-1 bg-purple-500"></div>
-                    <div>
-                        <h3 class="text-xl font-bold text-white mb-1">Target Password</h3>
-                        <p class="text-gray-400 text-xs">Decryption Successful</p>
+            <div class="lg:col-span-7 flex flex-col gap-8">
+                <div class="bg-slate-900/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-8 lg:p-10 flex items-center justify-between relative overflow-hidden shadow-2xl group">
+                    <div class="absolute right-0 top-0 h-full w-1 bg-purple-500 shadow-[0_0_20px_#a855f7]"></div>
+                    <div class="absolute -left-20 -bottom-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    
+                    <div class="z-10">
+                        <h3 class="text-2xl font-bold text-white mb-2">Decrypted Key</h3>
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                            <p class="text-slate-400 text-xs uppercase tracking-widest">WPA3-Personal Verified</p>
+                        </div>
                     </div>
-                    <div class="text-right">
-                        <div id="wifi-pass-display" class="text-2xl md:text-4xl font-mono text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 font-bold tracking-wider"></div>
-                        <div class="text-xs text-green-400 mt-1 font-mono">Verified Key</div>
+                    <div class="text-right z-10 relative">
+                        <div class="absolute inset-0 bg-cyan-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div id="wifi-pass-display" class="text-3xl md:text-5xl font-mono text-white font-bold tracking-wider drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]"></div>
+                        <div class="text-[10px] text-green-400 mt-2 font-mono tracking-[0.2em] uppercase">Hexadecimal Match</div>
                     </div>
                 </div>
 
-                <div class="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 overflow-hidden flex flex-col">
-                    <h3 class="text-white font-bold mb-4 flex justify-between items-center">
-                        <span>Local Mesh</span>
-                        <span class="text-xs bg-white/10 px-2 py-1 rounded text-gray-300">ACTIVE SCAN</span>
-                    </h3>
-                    <div class="flex-1 overflow-y-auto pr-2 custom-scroll space-y-3">
-                        <div class="flex items-center justify-between p-3 hover:bg-white/5 rounded-xl transition-colors border border-transparent hover:border-white/5 group">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path></svg>
+                <div class="flex-1 bg-slate-900/60 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-8 overflow-hidden flex flex-col shadow-2xl">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-white font-bold text-lg flex items-center gap-3">
+                            <span class="w-1 h-6 bg-cyan-500 rounded-full"></span>
+                            Nearby Mesh Nodes
+                        </h3>
+                        <span class="text-[10px] bg-cyan-500/10 border border-cyan-500/20 px-3 py-1.5 rounded-full text-cyan-300 font-bold uppercase tracking-wider animate-pulse">Scanning Active</span>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto pr-2 custom-scroll space-y-4">
+                        <div class="flex items-center justify-between p-4 bg-white/[0.02] hover:bg-white/[0.05] rounded-2xl transition-all border border-transparent hover:border-white/10 group cursor-default">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 border border-blue-500/20 group-hover:scale-110 transition-transform">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"></path></svg>
                                 </div>
                                 <div>
-                                    <div class="text-white text-sm font-bold">Smart-Home-Guest</div>
-                                    <div class="text-gray-500 text-xs">Ch: 11 • -75dBm</div>
+                                    <div class="text-white text-sm font-bold tracking-wide">NETGEAR-Mesh-Guest</div>
+                                    <div class="text-slate-500 text-[10px] uppercase font-bold mt-1">Ch: 6 • RSSI: -42dBm</div>
                                 </div>
                             </div>
                             <div class="text-right">
-                                <div class="text-gray-400 font-mono text-sm blur-[2px] group-hover:blur-0 transition-all duration-300">Pass1234</div>
+                                <div class="text-slate-300 font-mono text-sm font-bold blur-[4px] group-hover:blur-0 transition-all duration-300 text-shadow-glow">Summer2025!</div>
+                                <div class="text-[9px] text-green-500 mt-1 font-mono uppercase">Cached</div>
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-between p-3 hover:bg-white/5 rounded-xl transition-colors border border-transparent hover:border-white/5 group">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        <div class="flex items-center justify-between p-4 bg-white/[0.02] hover:bg-white/[0.05] rounded-2xl transition-all border border-transparent hover:border-white/10 group cursor-default">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400 border border-purple-500/20 group-hover:scale-110 transition-transform">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                                 </div>
                                 <div>
-                                    <div class="text-white text-sm font-bold">Office-Printer</div>
-                                    <div class="text-gray-500 text-xs">Direct • -55dBm</div>
+                                    <div class="text-white text-sm font-bold tracking-wide">iPhone 15 Pro Max</div>
+                                    <div class="text-slate-500 text-[10px] uppercase font-bold mt-1">Direct • RSSI: -65dBm</div>
                                 </div>
                             </div>
                             <div class="text-right">
-                                <div class="text-gray-400 font-mono text-sm blur-[2px] group-hover:blur-0 transition-all duration-300">Admin#99</div>
+                                <div class="text-slate-300 font-mono text-sm font-bold blur-[4px] group-hover:blur-0 transition-all duration-300 text-shadow-glow">hunter2</div>
+                                <div class="text-[9px] text-yellow-500 mt-1 font-mono uppercase">Weak Key</div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between p-4 bg-white/[0.02] hover:bg-white/[0.05] rounded-2xl transition-all border border-transparent hover:border-white/10 group cursor-default">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-xl bg-pink-500/10 flex items-center justify-center text-pink-400 border border-pink-500/20 group-hover:scale-110 transition-transform">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                                </div>
+                                <div>
+                                    <div class="text-white text-sm font-bold tracking-wide">Linksys-Smart-Lab</div>
+                                    <div class="text-slate-500 text-[10px] uppercase font-bold mt-1">Ch: 1 • RSSI: -88dBm</div>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-slate-300 font-mono text-sm font-bold blur-[4px] group-hover:blur-0 transition-all duration-300 text-shadow-glow">C0nn3ct!</div>
+                                <div class="text-[9px] text-green-500 mt-1 font-mono uppercase">Cached</div>
                             </div>
                         </div>
                     </div>
