@@ -9,6 +9,7 @@
 body {
     font-family: 'JetBrains Mono', monospace;
     background: radial-gradient(circle at center, #0f172a 0%, #020024 100%);
+    -webkit-font-smoothing: antialiased;
 }
 
 .bg-midnight {
@@ -36,17 +37,28 @@ body {
 
 .wifi-bar {
     position: absolute;
-    border: 8px solid transparent;
+    border: 6px solid transparent;
     border-top-color: var(--accent-cyan);
     border-radius: 50%;
     box-shadow: 0 -4px 20px var(--accent-glow);
     animation: pulseWifi 2.5s infinite cubic-bezier(0.4, 0, 0.6, 1);
 }
 
-.bar-1 { width: 140px; height: 140px; top: 20px; animation-delay: 0s; opacity: 0.2; }
-.bar-2 { width: 100px; height: 100px; top: 40px; animation-delay: 0.15s; opacity: 0.4; }
-.bar-3 { width: 60px; height: 60px; top: 60px; animation-delay: 0.3s; opacity: 0.6; }
-.bar-4 { width: 20px; height: 20px; top: 80px; background: var(--accent-cyan); border: none; animation-delay: 0.45s; opacity: 1; box-shadow: 0 0 20px var(--accent-cyan); }
+@media (min-width: 768px) {
+    .wifi-bar { border-width: 8px; }
+}
+
+.bar-1 { width: 100px; height: 100px; top: 20px; animation-delay: 0s; opacity: 0.2; }
+.bar-2 { width: 70px; height: 70px; top: 35px; animation-delay: 0.15s; opacity: 0.4; }
+.bar-3 { width: 40px; height: 40px; top: 50px; animation-delay: 0.3s; opacity: 0.6; }
+.bar-4 { width: 14px; height: 14px; top: 65px; background: var(--accent-cyan); border: none; animation-delay: 0.45s; opacity: 1; box-shadow: 0 0 20px var(--accent-cyan); }
+
+@media (min-width: 768px) {
+    .bar-1 { width: 140px; height: 140px; top: 20px; }
+    .bar-2 { width: 100px; height: 100px; top: 40px; }
+    .bar-3 { width: 60px; height: 60px; top: 60px; }
+    .bar-4 { width: 20px; height: 20px; top: 80px; }
+}
 
 @keyframes pulseWifi {
     0% { transform: scale(0.95); opacity: 0.1; filter: brightness(1); }
@@ -63,7 +75,7 @@ body {
 }
 
 @keyframes collapseBars {
-    0% { border: 8px solid transparent; border-top-color: var(--accent-cyan); border-radius: 50%; background: transparent; }
+    0% { border-color: transparent; border-top-color: var(--accent-cyan); border-radius: 50%; background: transparent; }
     50% { width: 20px; border-radius: 2px; }
     100% { width: 100px; height: 2px; top: 50%; border-radius: 0; background: var(--accent-cyan); border: none; transform: scale(1); opacity: 1; }
 }
