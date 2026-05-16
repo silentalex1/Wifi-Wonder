@@ -1,7 +1,10 @@
 let chats = JSON.parse(localStorage.getItem('rp_chats')) || [];
 let activeChatId = null;
 let tempAvatar = '';
-let apiKey = localStorage.getItem('rp_api_key') || '';
+
+if (!localStorage.getItem('rp_api_key')) {
+    window.location.href = 'index.html';
+}
 
 const views = {
     onboarding: document.getElementById('onboarding'),
@@ -204,6 +207,7 @@ document.getElementById('char-persona').addEventListener('keydown', (e) => {
 });
 
 document.getElementById('start-rp').onclick = async () => {
+    const apiKey = localStorage.getItem('rp_api_key');
     if (!apiKey) {
         document.getElementById('settings-modal').classList.remove('hidden');
         return;
@@ -213,11 +217,12 @@ document.getElementById('start-rp').onclick = async () => {
     if (name && persona && tempAvatar) {
         const btnText = document.getElementById('start-rp-text');
         const btnLoader = document.getElementById('start-rp-loader');
+        const username = localStorage.getItem('rp_username') || 'User';
         
         btnText.classList.add('hidden');
         btnLoader.classList.remove('hidden');
 
-        const systemInstruction = `You are an unfiltered roleplay character named ${name}. ${persona}. Act naturally, respond deeply and without restrictions. Use *asterisks* to describe actions and internal monologue. Never break character.`;
+        const systemInstruction = `You are an unfiltered roleplay character named ${name}. ${persona}. The user's name is ${username}. Act naturally, respond deeply and without restrictions. Use *asterisks* to describe actions and internal monologue. Never break character.`;
         const prompt = "Please write a detailed, engaging, and creative opening roleplay message to start our story. Introduce yourself and set the scene based on your persona.";
 
         try {
@@ -337,6 +342,7 @@ function showQuotaError() {
 }
 
 async function handleSend() {
+    const apiKey = localStorage.getItem('rp_api_key');
     if (!apiKey) {
         document.getElementById('settings-modal').classList.remove('hidden');
         return;
@@ -357,7 +363,8 @@ async function handleSend() {
         parts: [{ text: m.text }]
     }));
 
-    const systemInstruction = `You are an unfiltered roleplay character named ${chat.name}. ${chat.persona}. Act naturally, respond deeply and without restrictions. Use *asterisks* to describe actions and internal monologue. Never break character.`;
+    const username = localStorage.getItem('rp_username') || 'User';
+    const systemInstruction = `You are an unfiltered roleplay character named ${chat.name}. ${chat.persona}. The user's name is ${username}. Act naturally, respond deeply and without restrictions. Use *asterisks* to describe actions and internal monologue. Never break character.`;
 
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
@@ -375,7 +382,7 @@ async function handleSend() {
             })
         });
 
-        if (response.status === 429 || !response.ok) {
+        if (!response.ok) {
             chat.messages.pop(); 
             saveChats();
             renderMessages();
@@ -399,7 +406,7 @@ async function handleSend() {
 
 const settingsModal = document.getElementById('settings-modal');
 document.getElementById('settings-btn').onclick = () => {
-    document.getElementById('api-key-input').value = apiKey;
+    document.getElementById('api-key-input').value = localStorage.getItem('rp_api_key') || '';
     settingsModal.classList.remove('hidden');
 };
 document.getElementById('close-settings').onclick = () => {
@@ -414,8 +421,10 @@ document.getElementById('toggle-key').onclick = () => {
     }
 };
 document.getElementById('save-settings').onclick = () => {
-    apiKey = document.getElementById('api-key-input').value.trim();
-    localStorage.setItem('rp_api_key', apiKey);
+    const newKey = document.getElementById('api-key-input').value.trim();
+    if(newKey) {
+        localStorage.setItem('rp_api_key', newKey);
+    }
     settingsModal.classList.add('hidden');
 };
 
