@@ -10,18 +10,18 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300..600;1,300..600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="main.css">
 </head>
-<body class="bg-[#0b0f19] text-white overflow-hidden h-screen w-screen flex antialiased">
+<body class="bg-[#0b0f19] text-white overflow-hidden h-screen w-screen flex antialiased relative">
 
 <div class="quota-banner" id="quota-banner">
     <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-    <span>your Gemini API key has ran out or is invalid. Check settings to update.</span>
+    <span id="quota-msg">An error occurred with the API. Check your settings.</span>
 </div>
 
-<div id="image-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 cursor-pointer">
+<div id="image-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[60] cursor-pointer">
     <img id="image-modal-img" class="max-w-[90vw] max-h-[90vh] object-contain rounded-xl shadow-2xl" src="" alt="">
 </div>
 
-<div id="settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+<div id="settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[60] p-4">
     <div class="bg-[#111522] border border-[#2a2f45] rounded-2xl p-6 w-full max-w-md relative">
         <button id="close-settings" class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -44,14 +44,21 @@
                 </button>
             </div>
         </div>
-        <button id="save-settings" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-colors">Save Settings</button>
-        <button id="logout-btn" class="w-full mt-3 border border-red-500/40 hover:bg-red-500/10 text-red-400 hover:text-red-300 font-medium py-3 rounded-xl transition-colors">Logout</button>
+        <div class="flex flex-col gap-3">
+            <button id="save-settings" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-colors">Save Settings</button>
+            <button id="logout-btn" class="w-full border border-red-500/40 hover:bg-red-500/10 text-red-400 hover:text-red-300 font-medium py-3 rounded-xl transition-colors">Logout</button>
+        </div>
     </div>
 </div>
 
-<aside class="w-[280px] bg-[#111522] border-r border-[#1f2536] flex flex-col h-full flex-shrink-0">
+<div id="sidebar-overlay" class="fixed inset-0 bg-black/60 z-40 hidden transition-opacity md:hidden"></div>
+
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-[280px] bg-[#111522] border-r border-[#1f2536] flex flex-col transform -translate-x-full md:translate-x-0 md:relative transition-transform duration-300 flex-shrink-0">
     <div class="p-6 border-b border-[#1f2536] flex items-center justify-between">
         <p class="text-xl font-semibold">Roleplay Realm</p>
+        <button id="close-sidebar-btn" class="md:hidden text-gray-400 hover:text-white p-2 -mr-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
     </div>
     <p class="px-6 pt-4 pb-2 text-xs uppercase text-gray-500 font-semibold tracking-wider">Chats</p>
     <div id="chat-list" class="flex-1 overflow-y-auto px-4 flex flex-col gap-2 custom-scrollbar"></div>
@@ -66,50 +73,59 @@
     </div>
 </aside>
 
-<main class="flex-1 flex flex-col relative h-full bg-[#0b0f19]">
-    <section id="onboarding" class="flex-1 flex flex-col items-center justify-center p-8 hidden">
-        <div id="step-image" class="w-full max-w-2xl flex flex-col items-center gap-8">
-            <h2 class="text-2xl font-semibold text-center">Ask me how you want your character to be.</h2>
-            <div class="w-64 h-64 rounded-2xl overflow-hidden bg-[#111522] border border-[#2a2f45] flex items-center justify-center relative">
+<main class="flex-1 flex flex-col min-w-0 h-full relative bg-[#0b0f19]">
+    <header class="md:hidden flex items-center justify-between p-4 bg-[#111522] border-b border-[#1f2536] flex-shrink-0">
+        <div class="flex items-center gap-3">
+            <button id="open-sidebar-btn" class="text-gray-400 hover:text-white p-1">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+            <span class="font-semibold text-lg truncate" id="mobile-header-title">Roleplay Realm</span>
+        </div>
+    </header>
+
+    <section id="onboarding" class="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 hidden overflow-y-auto custom-scrollbar">
+        <div id="step-image" class="w-full max-w-2xl flex flex-col items-center gap-6 sm:gap-8 my-auto">
+            <h2 class="text-xl sm:text-2xl font-semibold text-center px-4">Ask me how you want your character to be.</h2>
+            <div class="w-48 h-48 sm:w-64 sm:h-64 rounded-2xl overflow-hidden bg-[#111522] border border-[#2a2f45] flex items-center justify-center relative flex-shrink-0">
                 <span id="gen-status" class="text-gray-500 text-sm absolute text-center px-4">No image yet.<br>Paste or generate one.</span>
                 <img id="gen-preview" class="w-full h-full object-cover hidden" alt="">
             </div>
-            <div class="w-full bg-[#111522] border border-[#2a2f45] rounded-2xl p-4 flex items-end gap-4 focus-within:border-gray-500 transition-colors">
-                <button type="button" id="upload-btn" class="p-2 bg-[#1f2536] hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white transition-colors">
+            <div class="w-full bg-[#111522] border border-[#2a2f45] rounded-2xl p-3 sm:p-4 flex items-end gap-3 sm:gap-4 focus-within:border-gray-500 transition-colors">
+                <button type="button" id="upload-btn" class="p-2 bg-[#1f2536] hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white transition-colors flex-shrink-0">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
                 </button>
                 <input type="file" id="file-input" accept="image/*" class="hidden">
-                <textarea id="image-prompt" rows="1" class="flex-1 bg-transparent border-none outline-none text-white resize-none max-h-48 py-1" placeholder="Ask me to generate the image or paste one."></textarea>
-                <button type="button" id="send-image-prompt" class="p-2 bg-[#1f2536] hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white transition-colors">
+                <textarea id="image-prompt" rows="1" class="flex-1 bg-transparent border-none outline-none text-white resize-none max-h-48 py-1 text-sm sm:text-base" placeholder="Ask me to generate the image or paste one."></textarea>
+                <button type="button" id="send-image-prompt" class="p-2 bg-[#1f2536] hover:bg-gray-700 rounded-lg text-gray-400 hover:text-white transition-colors flex-shrink-0">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
                 </button>
             </div>
-            <button type="button" id="next-image" class="mt-4 px-8 py-3 bg-[#2a2f45] hover:bg-[#363c57] text-white rounded-full font-medium transition-colors hidden">next</button>
+            <button type="button" id="next-image" class="mt-2 sm:mt-4 px-8 py-3 bg-[#2a2f45] hover:bg-[#363c57] text-white rounded-full font-medium transition-colors hidden">next</button>
         </div>
 
-        <div id="step-name" class="w-full max-w-2xl flex flex-col items-center gap-8 hidden">
-            <h2 class="text-2xl font-semibold text-center">Name the AI character.</h2>
+        <div id="step-name" class="w-full max-w-2xl flex flex-col items-center gap-6 sm:gap-8 hidden my-auto">
+            <h2 class="text-xl sm:text-2xl font-semibold text-center">Name the AI character.</h2>
             <div class="w-full bg-[#111522] border border-[#2a2f45] rounded-2xl p-4 focus-within:border-gray-500 transition-colors">
-                <input type="text" id="char-name" class="w-full bg-transparent border-none outline-none text-white py-1" placeholder="Tell me the AI name." maxlength="48">
+                <input type="text" id="char-name" class="w-full bg-transparent border-none outline-none text-white py-1 text-sm sm:text-base" placeholder="Tell me the AI name." maxlength="48">
             </div>
-            <button type="button" id="next-name" class="mt-4 px-8 py-3 bg-[#2a2f45] hover:bg-[#363c57] text-white rounded-full font-medium transition-colors">next</button>
+            <button type="button" id="next-name" class="mt-2 sm:mt-4 px-8 py-3 bg-[#2a2f45] hover:bg-[#363c57] text-white rounded-full font-medium transition-colors">next</button>
         </div>
 
-        <div id="step-persona" class="w-full max-w-2xl flex flex-col items-center gap-8 hidden">
-            <h2 class="text-2xl font-semibold text-center w-full text-left ml-4">Describe on how you want the AI to be/act.</h2>
+        <div id="step-persona" class="w-full max-w-2xl flex flex-col items-center gap-6 sm:gap-8 hidden my-auto">
+            <h2 class="text-xl sm:text-2xl font-semibold text-center w-full text-left sm:ml-4">Describe on how you want the AI to be/act.</h2>
             <div class="w-full bg-[#111522] border border-[#2a2f45] rounded-2xl p-4 focus-within:border-gray-500 transition-colors">
-                <textarea id="char-persona" rows="3" class="w-full bg-transparent border-none outline-none text-white resize-none" placeholder="Describe to me how you want me to act."></textarea>
+                <textarea id="char-persona" rows="4" class="w-full bg-transparent border-none outline-none text-white resize-none text-sm sm:text-base" placeholder="Describe to me how you want me to act."></textarea>
             </div>
-            <button type="button" id="start-rp" class="mt-4 px-8 py-3 bg-[#2a2f45] hover:bg-[#363c57] text-white rounded-full font-medium transition-colors w-48 flex items-center justify-center relative">
+            <button type="button" id="start-rp" class="mt-2 sm:mt-4 px-8 py-3 bg-[#2a2f45] hover:bg-[#363c57] text-white rounded-full font-medium transition-colors w-full sm:w-48 flex items-center justify-center relative">
                 <span id="start-rp-text">start roleplaying.</span>
                 <svg id="start-rp-loader" class="animate-spin h-5 w-5 text-white hidden absolute" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
             </button>
         </div>
     </section>
 
-    <section id="chat-room" class="flex-1 flex flex-col h-full hidden">
-        <div id="messages" class="flex-1 overflow-y-auto p-8 flex flex-col gap-6 custom-scrollbar scroll-smooth"></div>
-        <div class="w-full p-6 pt-0 bg-gradient-to-t from-[#0b0f19] via-[#0b0f19] to-transparent flex justify-center">
+    <section id="chat-room" class="flex-1 flex flex-col min-h-0 hidden relative">
+        <div id="messages" class="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col gap-6 custom-scrollbar scroll-smooth"></div>
+        <div class="w-full p-3 sm:p-6 pt-0 bg-gradient-to-t from-[#0b0f19] via-[#0b0f19] to-transparent flex justify-center flex-shrink-0">
             <div class="w-full max-w-4xl flex flex-col bg-[#111522] border border-[#2a2f45] rounded-2xl shadow-lg focus-within:border-gray-500 transition-colors overflow-hidden">
                 <div id="reply-preview-bar" class="hidden items-center gap-3 px-4 pt-3 pb-2 border-b border-[#1f2536]">
                     <div class="flex-1 flex items-center gap-2 min-w-0">
@@ -122,12 +138,12 @@
                     </button>
                 </div>
                 <div id="image-preview-area" class="hidden gap-2 px-3 pt-3 flex-wrap"></div>
-                <div class="flex items-end gap-3 p-3">
-                    <button type="button" id="attach-image-btn" class="p-2 bg-[#1f2536] hover:bg-[#363c57] rounded-lg text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Attach image">
+                <div class="flex items-end gap-2 sm:gap-3 p-2 sm:p-3">
+                    <button type="button" id="attach-image-btn" class="p-2 sm:p-3 bg-[#1f2536] hover:bg-[#363c57] rounded-xl text-gray-400 hover:text-white transition-colors flex-shrink-0" title="Attach image">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
                     </button>
-                    <textarea id="chat-input" rows="1" class="flex-1 bg-transparent border-none outline-none text-white resize-none max-h-56 py-2 px-2" placeholder="Continue the story..."></textarea>
-                    <button type="button" id="chat-send" class="p-3 bg-[#1f2536] hover:bg-[#363c57] rounded-xl text-gray-300 hover:text-white transition-colors flex-shrink-0">
+                    <textarea id="chat-input" rows="1" class="flex-1 bg-transparent border-none outline-none text-white resize-none max-h-40 sm:max-h-56 py-2 px-2 text-sm sm:text-base" placeholder="Continue the story..."></textarea>
+                    <button type="button" id="chat-send" class="p-2 sm:p-3 bg-[#1f2536] hover:bg-[#363c57] rounded-xl text-gray-300 hover:text-white transition-colors flex-shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
                     </button>
                 </div>
@@ -138,4 +154,4 @@
 
 <script src="main.js"></script>
 </body>
-</html>
+</html>s
