@@ -226,7 +226,7 @@ document.getElementById('start-rp').onclick = async () => {
         const prompt = "Please write a detailed, engaging, and creative opening roleplay message to start our story. Introduce yourself and set the scene based on your persona.";
 
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
