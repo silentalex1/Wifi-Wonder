@@ -1,4 +1,6 @@
-let chats = JSON.parse(localStorage.getItem('rp_chats')) || [];
+const _currentUser = localStorage.getItem('rp_username') || 'default';
+const _chatsKey = 'rp_chats_' + _currentUser;
+let chats = JSON.parse(localStorage.getItem(_chatsKey)) || [];
 let activeChatId = null;
 let tempAvatar = '';
 
@@ -22,7 +24,7 @@ function uuidv4() {
 }
 
 function saveChats() {
-    localStorage.setItem('rp_chats', JSON.stringify(chats));
+    localStorage.setItem(_chatsKey, JSON.stringify(chats));
 }
 
 function renderChatList() {
@@ -426,6 +428,12 @@ document.getElementById('save-settings').onclick = () => {
         localStorage.setItem('rp_api_key', newKey);
     }
     settingsModal.classList.add('hidden');
+};
+
+document.getElementById('logout-btn').onclick = () => {
+    localStorage.removeItem('rp_api_key');
+    localStorage.removeItem('rp_username');
+    window.location.href = 'index.html';
 };
 
 if (chats.length > 0) {
