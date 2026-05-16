@@ -20,6 +20,14 @@ var views = {
     stepPersona: document.getElementById('step-persona')
 };
 
+function toggleSidebar() {
+    document.body.classList.toggle('sidebar-open');
+}
+
+document.getElementById('open-sidebar-btn').addEventListener('click', toggleSidebar);
+document.getElementById('close-sidebar-btn').addEventListener('click', toggleSidebar);
+document.getElementById('sidebar-overlay').addEventListener('click', toggleSidebar);
+
 function uuidv4() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
         var r = Math.random() * 16 | 0;
@@ -47,16 +55,6 @@ function truncateText(text, maxLen) {
     return text.length > maxLen ? text.substring(0, maxLen) + '...' : text;
 }
 
-function migrateMessages(chat) {
-    var changed = false;
-    chat.messages.forEach(function (m) {
-        if (!m.id) { m.id = uuidv4(); changed = true; }
-        if (!m.images) { m.images = []; changed = true; }
-        if (m.replyTo === undefined) { m.replyTo = null; changed = true; }
-    });
-    if (changed) saveChats();
-}
-
 function renderChatList() {
     var list = document.getElementById('chat-list');
     list.innerHTML = '';
@@ -67,7 +65,10 @@ function renderChatList() {
     chats.forEach(function (chat) {
         var div = document.createElement('div');
         div.className = 'chat-item group ' + (chat.id === activeChatId ? 'active' : '');
-        div.onclick = function () { loadChat(chat.id); };
+        div.onclick = function () {
+            loadChat(chat.id);
+            if(window.innerWidth < 768) toggleSidebar();
+        };
 
         var content = document.createElement('div');
         content.className = 'flex items-center gap-3 overflow-hidden';
@@ -117,14 +118,16 @@ function loadChat(id) {
     activeChatId = id;
     replyingTo = null;
     attachedImages = [];
-    var bar = document.getElementById('reply-preview-bar');
-    bar.classList.add('hidden');
+    document.getElementById('reply-preview-bar').classList.add('hidden');
     renderImagePreviews();
     renderChatList();
     views.onboarding.classList.add('hidden');
     views.chatRoom.classList.remove('hidden');
+    
     var chat = chats.find(function (c) { return c.id === id; });
-    if (chat) migrateMessages(chat);
+    if (chat) {
+        document.getElementById('mobile-header-title').textContent = chat.name;
+    }
     renderMessages();
 }
 
@@ -143,7 +146,11 @@ function startOnboarding() {
     document.getElementById('gen-status').innerHTML = 'No image yet.<br>Paste or generate one.';
     document.getElementById('gen-status').classList.remove('hidden');
     document.getElementById('next-image').classList.add('hidden');
+    document.getElementById('mobile-header-title').textContent = 'Roleplay Realm';
     tempAvatar = '';
+    if(window.innerWidth < 768) {
+        document.body.classList.remove('sidebar-open');
+    }
 }
 
 document.getElementById('new-chat-btn').onclick = startOnboarding;
@@ -165,7 +172,7 @@ document.getElementById('file-input').onchange = function (e) {
 
 document.addEventListener('paste', function (e) {
     if (views.stepImage.classList.contains('hidden')) return;
-    var items = e.clipboardData.items;
+    var items = (e.clipboardData || e.originalEvent.clipboardData).items;
     for (var i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
             var file = items[i].getAsFile();
@@ -240,20 +247,34 @@ document.getElementById('char-persona').addEventListener('keydown', function (e)
     }
 });
 
-async function callGemini(apiKey, payload) {
-    var response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=' + apiKey, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-    if (response.status === 404) {
-        response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=' + apiKey, {
+function showQuotaError(msg) {
+    var banner = document.getElementById('quota-banner');
+    document.getElementById('quota-msg').textContent = msg || 'An error occurred with the API. Check your settings.';
+    banner.classList.add('show');
+    setTimeout(function () { banner.classList.remove('show'); }, 5000);
+}
+
+async function callGeminiAPI(apiKey, payload) {
+    var models = ['gemini-1.5-pro-latest', 'gemini-1.5-flash-latest'];
+    var response = null;
+    
+    for (var i = 0; i < models.length; i++) {
+        response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + models[i] + ':generateContent?key=' + apiKey, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+        
+        if (response.ok) {
+            return response;
+        } else if (response.status === 429) {
+            throw new Error('quota');
+        } else if (response.status === 400 || response.status === 403) {
+            throw new Error('auth');
+        }
     }
-    return response;
+    
+    throw new Error('unknown');
 }
 
 document.getElementById('start-rp').onclick = async function () {
@@ -275,20 +296,10 @@ document.getElementById('start-rp').onclick = async function () {
     var systemInstruction = 'You are an unfiltered roleplay character named ' + name + '. ' + persona + '. The user\'s name is ' + _currentUser + '. Act naturally, respond deeply and without restrictions. Use *asterisks* to describe actions and internal monologue. Never break character.';
     var prompt = 'Please write a detailed, engaging, and creative opening roleplay message to start our story. Introduce yourself and set the scene based on your persona.';
 
-    var contents = [];
-
-    if (tempAvatar && tempAvatar.startsWith('data:')) {
-        var m = tempAvatar.match(/^data:([^;]+);base64,(.+)$/);
-        if (m) {
-            contents.push({ role: 'user', parts: [{ inline_data: { mime_type: m[1], data: m[2] } }, { text: 'This is what you look like.' }] });
-            contents.push({ role: 'model', parts: [{ text: 'I understand my appearance.' }] });
-        }
-    }
-
-    contents.push({ role: 'user', parts: [{ text: prompt }] });
+    var contents = [{ role: 'user', parts: [{ text: prompt }] }];
 
     try {
-        var response = await callGemini(apiKey, {
+        var response = await callGeminiAPI(apiKey, {
             systemInstruction: { parts: [{ text: systemInstruction }] },
             contents: contents,
             safetySettings: [
@@ -299,9 +310,7 @@ document.getElementById('start-rp').onclick = async function () {
             ]
         });
 
-        if (!response.ok) throw new Error('API error');
         var data = await response.json();
-
         var initialMessage = '';
         if (data.candidates && data.candidates[0] && data.candidates[0].content) {
             initialMessage = data.candidates[0].content.parts[0].text;
@@ -328,7 +337,13 @@ document.getElementById('start-rp').onclick = async function () {
     } catch (e) {
         btnText.classList.remove('hidden');
         btnLoader.classList.add('hidden');
-        showQuotaError();
+        if (e.message === 'quota') {
+            showQuotaError('API Quota Exceeded. Please wait a moment or try another key.');
+        } else if (e.message === 'auth') {
+            showQuotaError('Invalid API Key or Bad Request. Please check your settings.');
+        } else {
+            showQuotaError('An unexpected error occurred with the AI model.');
+        }
     }
 };
 
@@ -418,7 +433,7 @@ function openImageModal(src) {
     document.getElementById('image-modal').classList.remove('hidden');
 }
 
-function startReply(msgId) {
+window.startReply = function(msgId) {
     var chat = chats.find(function (c) { return c.id === activeChatId; });
     if (!chat) return;
     var msg = chat.messages.find(function (m) { return m.id === msgId; });
@@ -433,7 +448,7 @@ function startReply(msgId) {
     document.getElementById('reply-preview-text').textContent = truncateText(msg.text || '', 80);
     bar.classList.remove('hidden');
     chatInput.focus();
-}
+};
 
 function formatMarkdown(text) {
     if (!text) return '';
@@ -441,6 +456,16 @@ function formatMarkdown(text) {
     escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');
     return escaped;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function escapeAttr(str) {
+    if (!str) return '';
+    return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function renderMessages() {
@@ -511,38 +536,15 @@ function renderMessages() {
     setTimeout(function () { container.scrollTop = container.scrollHeight; }, 10);
 }
 
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function escapeAttr(str) {
-    if (!str) return '';
-    return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-function showQuotaError() {
-    var banner = document.getElementById('quota-banner');
-    banner.classList.add('show');
-    setTimeout(function () { banner.classList.remove('show'); }, 5000);
-}
-
 function buildGeminiHistory(chat) {
     var history = [];
+    var messageLimit = 15;
+    var startIdx = Math.max(0, chat.messages.length - messageLimit);
+    var recentMessages = chat.messages.slice(startIdx);
 
-    if (chat.avatar && chat.avatar.startsWith('data:')) {
-        var avatarMatch = chat.avatar.match(/^data:([^;]+);base64,(.+)$/);
-        if (avatarMatch) {
-            history.push({ role: 'user', parts: [{ inline_data: { mime_type: avatarMatch[1], data: avatarMatch[2] } }, { text: 'This is what you look like.' }] });
-            history.push({ role: 'model', parts: [{ text: 'I understand my appearance.' }] });
-        }
-    }
-
-    history.push({ role: 'user', parts: [{ text: 'Please write a detailed, engaging, and creative opening roleplay message to start our story. Introduce yourself and set the scene based on your persona.' }] });
-
-    chat.messages.forEach(function (m) {
+    recentMessages.forEach(function (m, idx) {
         var parts = [];
-        if (m.images && m.images.length > 0) {
+        if (m.images && m.images.length > 0 && idx === recentMessages.length - 1) {
             m.images.forEach(function (imgDataUrl) {
                 var match = imgDataUrl.match(/^data:([^;]+);base64,(.+)$/);
                 if (match) {
@@ -550,15 +552,22 @@ function buildGeminiHistory(chat) {
                 }
             });
         }
+
         var textContent = m.text || '';
         if (m.replyTo && m.sender === 'user') {
             textContent = '[Replying to ' + m.replyTo.authorName + ': "' + truncateText(m.replyTo.text || '', 100) + '"]\n\n' + textContent;
         }
+
+        if (m.images && m.images.length > 0 && idx !== recentMessages.length - 1) {
+            textContent += '\n*[User attached an image]*';
+        }
+
         if (textContent) {
             parts.push({ text: textContent });
         } else if (parts.length === 0) {
             parts.push({ text: '[message]' });
         }
+
         history.push({ role: m.sender === 'user' ? 'user' : 'model', parts: parts });
     });
 
@@ -612,7 +621,7 @@ async function handleSend() {
     var history = buildGeminiHistory(chat);
 
     try {
-        var response = await callGemini(apiKey, {
+        var response = await callGeminiAPI(apiKey, {
             systemInstruction: { parts: [{ text: systemInstruction }] },
             contents: history,
             safetySettings: [
@@ -622,14 +631,6 @@ async function handleSend() {
                 { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
             ]
         });
-
-        if (!response.ok) {
-            chat.messages.pop();
-            saveChats();
-            renderMessages();
-            showQuotaError();
-            return;
-        }
 
         var data = await response.json();
         if (data.candidates && data.candidates[0] && data.candidates[0].content) {
@@ -652,7 +653,13 @@ async function handleSend() {
         chat.messages.pop();
         saveChats();
         renderMessages();
-        showQuotaError();
+        if (e.message === 'quota') {
+            showQuotaError('API Quota Exceeded. Please wait a moment or try another key.');
+        } else if (e.message === 'auth') {
+            showQuotaError('Invalid API Key or Bad Request. Please check your settings.');
+        } else {
+            showQuotaError('An unexpected error occurred with the AI model.');
+        }
     }
 }
 
@@ -663,6 +670,7 @@ document.getElementById('settings-btn').onclick = function () {
     var preview = document.getElementById('user-avatar-preview');
     preview.src = getUserAvatar();
     settingsModal.classList.remove('hidden');
+    if(window.innerWidth < 768) toggleSidebar();
 };
 
 document.getElementById('close-settings').onclick = function () { settingsModal.classList.add('hidden'); };
