@@ -240,6 +240,22 @@ document.getElementById('char-persona').addEventListener('keydown', function (e)
     }
 });
 
+async function callGemini(apiKey, payload) {
+    var response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=' + apiKey, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (response.status === 404) {
+        response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=' + apiKey, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+    }
+    return response;
+}
+
 document.getElementById('start-rp').onclick = async function () {
     var apiKey = _users[_currentUser].api_key;
     if (!apiKey) {
@@ -272,19 +288,15 @@ document.getElementById('start-rp').onclick = async function () {
     contents.push({ role: 'user', parts: [{ text: prompt }] });
 
     try {
-        var response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=' + apiKey, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-                contents: contents,
-                safetySettings: [
-                    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-                    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-                    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-                    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-                ]
-            })
+        var response = await callGemini(apiKey, {
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+            contents: contents,
+            safetySettings: [
+                { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+            ]
         });
 
         if (!response.ok) throw new Error('API error');
@@ -526,6 +538,8 @@ function buildGeminiHistory(chat) {
         }
     }
 
+    history.push({ role: 'user', parts: [{ text: 'Please write a detailed, engaging, and creative opening roleplay message to start our story. Introduce yourself and set the scene based on your persona.' }] });
+
     chat.messages.forEach(function (m) {
         var parts = [];
         if (m.images && m.images.length > 0) {
@@ -548,7 +562,16 @@ function buildGeminiHistory(chat) {
         history.push({ role: m.sender === 'user' ? 'user' : 'model', parts: parts });
     });
 
-    return history;
+    var compressedHistory = [];
+    history.forEach(function (msg) {
+        if (compressedHistory.length > 0 && compressedHistory[compressedHistory.length - 1].role === msg.role) {
+            compressedHistory[compressedHistory.length - 1].parts = compressedHistory[compressedHistory.length - 1].parts.concat(msg.parts);
+        } else {
+            compressedHistory.push({ role: msg.role, parts: msg.parts.slice() });
+        }
+    });
+
+    return compressedHistory;
 }
 
 async function handleSend() {
@@ -589,19 +612,15 @@ async function handleSend() {
     var history = buildGeminiHistory(chat);
 
     try {
-        var response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=' + apiKey, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-                contents: history,
-                safetySettings: [
-                    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-                    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-                    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-                    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
-                ]
-            })
+        var response = await callGemini(apiKey, {
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+            contents: history,
+            safetySettings: [
+                { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+                { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+            ]
         });
 
         if (!response.ok) {
