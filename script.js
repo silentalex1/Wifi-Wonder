@@ -38,11 +38,34 @@
         });
     }
 
-    var togglePw = document.getElementById('toggle-pw');
-    if (togglePw) {
-        togglePw.addEventListener('click', function () {
+    var togglePwApi = document.getElementById('toggle-pw-api');
+    if (togglePwApi) {
+        togglePwApi.addEventListener('click', function () {
             var input = document.getElementById('api-key');
             input.type = input.type === 'password' ? 'text' : 'password';
+        });
+    }
+
+    var togglePwPass = document.getElementById('toggle-pw-pass');
+    if (togglePwPass) {
+        togglePwPass.addEventListener('click', function () {
+            var input = document.getElementById('password');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        });
+    }
+
+    var isLogin = false;
+    var toggleAuthBtn = document.getElementById('toggle-auth');
+    if (toggleAuthBtn) {
+        toggleAuthBtn.addEventListener('click', function () {
+            isLogin = !isLogin;
+            document.getElementById('auth-title').textContent = isLogin ? 'Login to Realm' : 'Roleplay Realm';
+            document.getElementById('auth-subtitle').textContent = isLogin ? 'Welcome back to your account.' : 'Enter your details to begin.';
+            document.getElementById('api-key-container').style.display = isLogin ? 'none' : 'block';
+            document.getElementById('api-hint').style.display = isLogin ? 'none' : 'block';
+            document.getElementById('auth-submit').textContent = isLogin ? 'Login' : 'Create Account';
+            toggleAuthBtn.innerHTML = isLogin ? 'Don\'t have an account? <span class="text-blue-400 font-semibold">Create one</span>' : 'Already have an account? <span class="text-blue-400 font-semibold">Login</span>';
+            document.getElementById('error-msg').classList.add('hidden');
         });
     }
 
@@ -52,21 +75,54 @@
             e.preventDefault();
             var username = document.getElementById('username').value.trim();
             var apiKey = document.getElementById('api-key').value.trim();
+            var password = document.getElementById('password').value.trim();
             var errorMsg = document.getElementById('error-msg');
-            if (!username || !apiKey) {
-                errorMsg.textContent = 'Please fill in all fields.';
-                errorMsg.classList.remove('hidden');
-                return;
+            
+            var users = JSON.parse(localStorage.getItem('rp_users')) || {};
+
+            if (isLogin) {
+                if (!username || !password) {
+                    errorMsg.textContent = 'Please fill in all fields.';
+                    errorMsg.classList.remove('hidden');
+                    return;
+                }
+                if (!users[username]) {
+                    errorMsg.textContent = 'Account not found. Please create one.';
+                    errorMsg.classList.remove('hidden');
+                    return;
+                }
+                if (users[username].password !== password) {
+                    errorMsg.textContent = 'Incorrect password.';
+                    errorMsg.classList.remove('hidden');
+                    return;
+                }
+                localStorage.setItem('rp_active_user', username);
+                window.location.href = 'main.html';
+            } else {
+                if (!username || !apiKey || !password) {
+                    errorMsg.textContent = 'Please fill in all fields.';
+                    errorMsg.classList.remove('hidden');
+                    return;
+                }
+                if (!apiKey.startsWith('AIza')) {
+                    errorMsg.textContent = 'Invalid Gemini API key format.';
+                    errorMsg.classList.remove('hidden');
+                    return;
+                }
+                if (users[username]) {
+                    errorMsg.textContent = 'Username already exists. Please login.';
+                    errorMsg.classList.remove('hidden');
+                    return;
+                }
+                users[username] = {
+                    password: password,
+                    api_key: apiKey,
+                    avatar: ''
+                };
+                localStorage.setItem('rp_users', JSON.stringify(users));
+                localStorage.setItem('rp_active_user', username);
+                window.location.href = 'main.html';
             }
-            if (!apiKey.startsWith('AIza')) {
-                errorMsg.textContent = 'Invalid Gemini API key format.';
-                errorMsg.classList.remove('hidden');
-                return;
-            }
-            errorMsg.classList.add('hidden');
-            localStorage.setItem('rp_username', username);
-            localStorage.setItem('rp_api_key', apiKey);
-            window.location.href = 'main.html';
         });
     }
 })();
