@@ -1,0 +1,111 @@
+body {
+    font-family: 'DM Sans', sans-serif;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #1f2536;
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #2a2f45;
+}
+
+.chat-item {
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.chat-item:hover {
+    background-color: #1f2536;
+}
+
+.chat-item.active {
+    background-color: #262d40;
+}
+
+.message-wrapper {
+    display: flex;
+    width: 100%;
+    max-width: 64rem;
+    margin: 0 auto;
+    gap: 1.25rem;
+}
+
+.message-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 2px solid #1f2536;
+}
+
+.message-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: #111522;
+    border: 1px solid #1f2536;
+    border-radius: 1rem;
+    padding: 1.25rem;
+}
+
+.message-author {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #ffffff;
+    font-size: 1.05rem;
+}
+
+.message-content {
+    color: #d1d5db;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    font-size: 1rem;
+}
+
+.message-content em {
+    color: #a78bfa;
+    font-style: italic;
+}
+
+.message-content strong {
+    color: white;
+    font-weight: 700;
+}
+
+.quota-banner {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -100%);
+    background-color: #ef4444;
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 0 0 1rem 1rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 100;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+}
+
+.quota-banner.show {
+    transform: translate(-50%, 0);
+}

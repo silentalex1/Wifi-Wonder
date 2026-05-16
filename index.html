@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login - Roleplay Realm</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300..600;1,300..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-[#0b0f19] text-white h-screen w-screen flex items-center justify-center antialiased overflow-hidden">
+    <div class="w-full max-w-md bg-[#111522] border border-[#2a2f45] rounded-3xl p-8 shadow-2xl relative">
+        <div class="absolute -top-10 left-1/2 transform -translate-x-1/2 w-20 h-20 bg-blue-600 rounded-full blur-3xl opacity-20"></div>
+        <h1 class="text-3xl font-bold text-center mb-2">Welcome to Realm</h1>
+        <p class="text-gray-400 text-center mb-8 text-sm">Enter your credentials to start roleplaying.</p>
+        
+        <form id="auth-form" class="flex flex-col gap-5">
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-2">Username</label>
+                <input type="text" id="username" class="w-full bg-[#0b0f19] border border-[#2a2f45] rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="How should AI address you?" required>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-2">Gemini API Key</label>
+                <input type="password" id="api-key" class="w-full bg-[#0b0f19] border border-[#2a2f45] rounded-xl py-3 px-4 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="AI Studio Key" required>
+            </div>
+            
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3.5 rounded-xl transition-colors mt-2 shadow-lg shadow-blue-900/20">
+                Enter Realm
+            </button>
+        </form>
+        <p id="error-msg" class="text-red-500 text-center text-sm mt-4 hidden"></p>
+    </div>
+<script src="script.js"></script>
+</body>
+</html>
