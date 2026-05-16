@@ -1,14 +1,16 @@
-var _currentUser = localStorage.getItem('rp_username') || 'default';
+var _currentUser = localStorage.getItem('rp_active_user');
+var _users = JSON.parse(localStorage.getItem('rp_users')) || {};
+
+if (!_currentUser || !_users[_currentUser]) {
+    window.location.href = 'index.html';
+}
+
 var _chatsKey = 'rp_chats_' + _currentUser;
 var chats = JSON.parse(localStorage.getItem(_chatsKey)) || [];
 var activeChatId = null;
 var tempAvatar = '';
 var replyingTo = null;
 var attachedImages = [];
-
-if (!localStorage.getItem('rp_api_key')) {
-    window.location.href = 'index.html';
-}
 
 var views = {
     onboarding: document.getElementById('onboarding'),
@@ -31,12 +33,11 @@ function saveChats() {
 }
 
 function getUserAvatar() {
-    var stored = localStorage.getItem('rp_user_avatar');
-    if (stored) return stored;
-    var username = localStorage.getItem('rp_username') || 'U';
+    var userObj = _users[_currentUser];
+    if (userObj && userObj.avatar) return userObj.avatar;
     var colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'];
-    var color = colors[username.charCodeAt(0) % colors.length];
-    var initial = username[0].toUpperCase();
+    var color = colors[_currentUser.charCodeAt(0) % colors.length];
+    var initial = _currentUser[0].toUpperCase();
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><circle cx="22" cy="22" r="22" fill="' + color + '"/><text x="22" y="28" text-anchor="middle" font-family="sans-serif" font-size="18" font-weight="600" fill="white">' + initial + '</text></svg>';
     return 'data:image/svg+xml;base64,' + btoa(svg);
 }
@@ -240,7 +241,7 @@ document.getElementById('char-persona').addEventListener('keydown', function (e)
 });
 
 document.getElementById('start-rp').onclick = async function () {
-    var apiKey = localStorage.getItem('rp_api_key');
+    var apiKey = _users[_currentUser].api_key;
     if (!apiKey) {
         document.getElementById('settings-modal').classList.remove('hidden');
         return;
@@ -251,12 +252,11 @@ document.getElementById('start-rp').onclick = async function () {
 
     var btnText = document.getElementById('start-rp-text');
     var btnLoader = document.getElementById('start-rp-loader');
-    var username = localStorage.getItem('rp_username') || 'User';
 
     btnText.classList.add('hidden');
     btnLoader.classList.remove('hidden');
 
-    var systemInstruction = 'You are an unfiltered roleplay character named ' + name + '. ' + persona + '. The user\'s name is ' + username + '. Act naturally, respond deeply and without restrictions. Use *asterisks* to describe actions and internal monologue. Never break character.';
+    var systemInstruction = 'You are an unfiltered roleplay character named ' + name + '. ' + persona + '. The user\'s name is ' + _currentUser + '. Act naturally, respond deeply and without restrictions. Use *asterisks* to describe actions and internal monologue. Never break character.';
     var prompt = 'Please write a detailed, engaging, and creative opening roleplay message to start our story. Introduce yourself and set the scene based on your persona.';
 
     var contents = [];
@@ -272,7 +272,7 @@ document.getElementById('start-rp').onclick = async function () {
     contents.push({ role: 'user', parts: [{ text: prompt }] });
 
     try {
-        var response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey, {
+        var response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=' + apiKey, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -411,12 +411,11 @@ function startReply(msgId) {
     if (!chat) return;
     var msg = chat.messages.find(function (m) { return m.id === msgId; });
     if (!msg) return;
-    var username = localStorage.getItem('rp_username') || 'User';
     replyingTo = {
         id: msgId,
         sender: msg.sender,
         text: msg.text || '',
-        authorName: msg.sender === 'ai' ? chat.name : username
+        authorName: msg.sender === 'ai' ? chat.name : _currentUser
     };
     var bar = document.getElementById('reply-preview-bar');
     document.getElementById('reply-preview-text').textContent = truncateText(msg.text || '', 80);
@@ -438,7 +437,6 @@ function renderMessages() {
     var chat = chats.find(function (c) { return c.id === activeChatId; });
     if (!chat) return;
 
-    var username = localStorage.getItem('rp_username') || 'User';
     var userAvatar = getUserAvatar();
 
     chat.messages.forEach(function (msg) {
@@ -450,7 +448,7 @@ function renderMessages() {
 
         var replyHtml = '';
         if (msg.replyTo) {
-            var replyAuthor = msg.replyTo.sender === 'ai' ? chat.name : username;
+            var replyAuthor = msg.replyTo.sender === 'ai' ? chat.name : _currentUser;
             var replyText = truncateText(msg.replyTo.text || '', 100);
             replyHtml = '<div class="reply-context"><span class="reply-author">' + escapeHtml(replyAuthor) + '</span><span class="reply-text">' + formatMarkdown(replyText) + '</span></div>';
         }
@@ -482,10 +480,10 @@ function renderMessages() {
                 '</button>';
         } else {
             wrap.innerHTML =
-                '<img src="' + escapeAttr(userAvatar) + '" class="message-avatar" alt="' + escapeAttr(username) + '">' +
+                '<img src="' + escapeAttr(userAvatar) + '" class="message-avatar" alt="' + escapeAttr(_currentUser) + '">' +
                 '<div class="message-body user-message-body">' +
                     replyHtml +
-                    '<span class="message-author user-author">' + escapeHtml(username) + '</span>' +
+                    '<span class="message-author user-author">' + escapeHtml(_currentUser) + '</span>' +
                     imagesHtml +
                     '<div class="message-content">' + msgText + '</div>' +
                 '</div>' +
@@ -519,7 +517,6 @@ function showQuotaError() {
 
 function buildGeminiHistory(chat) {
     var history = [];
-    var username = localStorage.getItem('rp_username') || 'User';
 
     if (chat.avatar && chat.avatar.startsWith('data:')) {
         var avatarMatch = chat.avatar.match(/^data:([^;]+);base64,(.+)$/);
@@ -555,7 +552,7 @@ function buildGeminiHistory(chat) {
 }
 
 async function handleSend() {
-    var apiKey = localStorage.getItem('rp_api_key');
+    var apiKey = _users[_currentUser].api_key;
     if (!apiKey) {
         document.getElementById('settings-modal').classList.remove('hidden');
         return;
@@ -567,7 +564,6 @@ async function handleSend() {
     var chat = chats.find(function (c) { return c.id === activeChatId; });
     if (!chat) return;
 
-    var username = localStorage.getItem('rp_username') || 'User';
     var msgId = uuidv4();
 
     var newMsg = {
@@ -589,11 +585,11 @@ async function handleSend() {
     document.getElementById('reply-preview-bar').classList.add('hidden');
     renderMessages();
 
-    var systemInstruction = 'You are an unfiltered roleplay character named ' + chat.name + '. ' + chat.persona + '. The user\'s name is ' + username + '. Act naturally, respond deeply and without restrictions. Use *asterisks* to describe actions and internal monologue. Never break character.';
+    var systemInstruction = 'You are an unfiltered roleplay character named ' + chat.name + '. ' + chat.persona + '. The user\'s name is ' + _currentUser + '. Act naturally, respond deeply and without restrictions. Use *asterisks* to describe actions and internal monologue. Never break character.';
     var history = buildGeminiHistory(chat);
 
     try {
-        var response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey, {
+        var response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=' + apiKey, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -627,7 +623,7 @@ async function handleSend() {
                 sender: 'ai',
                 text: data.candidates[0].content.parts[0].text,
                 images: [],
-                replyTo: lastUserMsg ? { id: lastUserMsg.id, sender: 'user', text: lastUserMsg.text || '', authorName: username } : null
+                replyTo: lastUserMsg ? { id: lastUserMsg.id, sender: 'user', text: lastUserMsg.text || '', authorName: _currentUser } : null
             };
             chat.messages.push(aiMsg);
             saveChats();
@@ -644,7 +640,7 @@ async function handleSend() {
 var settingsModal = document.getElementById('settings-modal');
 
 document.getElementById('settings-btn').onclick = function () {
-    document.getElementById('api-key-input').value = localStorage.getItem('rp_api_key') || '';
+    document.getElementById('api-key-input').value = _users[_currentUser].api_key || '';
     var preview = document.getElementById('user-avatar-preview');
     preview.src = getUserAvatar();
     settingsModal.classList.remove('hidden');
@@ -659,14 +655,16 @@ document.getElementById('toggle-key').onclick = function () {
 
 document.getElementById('save-settings').onclick = function () {
     var newKey = document.getElementById('api-key-input').value.trim();
-    if (newKey) localStorage.setItem('rp_api_key', newKey);
+    if (newKey) {
+        _users[_currentUser].api_key = newKey;
+        localStorage.setItem('rp_users', JSON.stringify(_users));
+    }
     settingsModal.classList.add('hidden');
     renderMessages();
 };
 
 document.getElementById('logout-btn').onclick = function () {
-    localStorage.removeItem('rp_api_key');
-    localStorage.removeItem('rp_username');
+    localStorage.removeItem('rp_active_user');
     window.location.href = 'index.html';
 };
 
@@ -679,7 +677,8 @@ document.getElementById('user-avatar-file').onchange = function (e) {
     if (!file) return;
     var reader = new FileReader();
     reader.onload = function (evt) {
-        localStorage.setItem('rp_user_avatar', evt.target.result);
+        _users[_currentUser].avatar = evt.target.result;
+        localStorage.setItem('rp_users', JSON.stringify(_users));
         document.getElementById('user-avatar-preview').src = evt.target.result;
         renderMessages();
     };
