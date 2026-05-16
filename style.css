@@ -1,0 +1,27 @@
+body {
+    font-family: 'DM Sans', sans-serif;
+}
+
+.auth-input {
+    width: 100%;
+    background-color: #111522;
+    border: 1px solid #2a2f45;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    color: white;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.auth-input:focus {
+    border-color: #4b5568;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px #111522 inset !important;
+    -webkit-text-fill-color: white !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
